@@ -40,7 +40,8 @@ export const App: React.FC = () => {
     return () => clearTimeout(timerId);
   }, [error]);
 
-  const handleFormSubmit = async (event: React.FormEvent) => {
+  const handleFormSubmit = (event: React.FormEvent) => {
+    // Винесений preventDefault для зручності
     event.preventDefault();
 
     const newTodoTitle = inputRef.current?.value.trim();
@@ -51,6 +52,7 @@ export const App: React.FC = () => {
       return;
     }
 
+    // Створення нового тимчасового об'єкта todo
     const newTodo: TempTodo & { tempLoading: boolean } = {
       id: Date.now(),
       title: newTodoTitle,
@@ -59,37 +61,41 @@ export const App: React.FC = () => {
       tempLoading: true,
     };
 
+    // Додавання нового завдання до списку з тимчасовим статусом
     setTodos(prevTodos => [...prevTodos, newTodo]);
     setIsSubmitting(true);
     setIsLoaderActive(true);
 
+    // Додавання класу активного лоадера
     const loaderElement = document.querySelector('.modal.overlay');
 
     if (loaderElement) {
       loaderElement.classList.add('is-active');
     }
 
-    try {
-      await addTodo(newTodo);
-      setTodos(prevTodos =>
-        prevTodos.map(todo =>
-          todo.id === newTodo.id ? { ...todo, tempLoading: false } : todo,
-        ),
-      );
-    } catch {
-      setError(errorMessages.add);
-    } finally {
-      setIsSubmitting(false);
-      if (inputRef.current) {
-        inputRef.current.value = '';
-      }
+    // Відправка запиту на додавання нового завдання
+    addTodo(newTodo)
+      .then(() => {
+        setTodos(prevTodos =>
+          prevTodos.map(todo =>
+            todo.id === newTodo.id ? { ...todo, tempLoading: false } : todo,
+          ),
+        );
+      })
+      .catch(() => setError(errorMessages.add))
+      .finally(() => {
+        setIsSubmitting(false);
+        if (inputRef.current) {
+          inputRef.current.value = '';
+        }
 
-      if (loaderElement) {
-        loaderElement.classList.remove('is-active');
-      }
+        // Вимкнення лоадера після завершення запиту
+        if (loaderElement) {
+          loaderElement.classList.remove('is-active');
+        }
 
-      setIsLoaderActive(false);
-    }
+        setIsLoaderActive(false);
+      });
   };
 
   const handleHideError = () => {
