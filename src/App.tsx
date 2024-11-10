@@ -13,11 +13,8 @@ export const App: React.FC = () => {
   const [filter, setFilter] = useState<Filter>(Filter.all);
   const [error, setError] = useState<ErrorMessages | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoaderActive, setIsLoaderActive] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  // Focus on the input field by default
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
@@ -41,9 +38,7 @@ export const App: React.FC = () => {
   }, [error]);
 
   const handleFormSubmit = (event: React.FormEvent) => {
-    // Винесений preventDefault для зручності
     event.preventDefault();
-
     const newTodoTitle = inputRef.current?.value.trim();
 
     if (!newTodoTitle) {
@@ -52,50 +47,21 @@ export const App: React.FC = () => {
       return;
     }
 
-    // Створення нового тимчасового об'єкта todo
-    const newTodo: TempTodo & { tempLoading: boolean } = {
-      id: Date.now(),
+    const tempTodo: Todo = {
+      id: 0,
       title: newTodoTitle,
       completed: false,
       userId: USER_ID,
-      tempLoading: true,
     };
 
-    // Додавання нового завдання до списку з тимчасовим статусом
-    setTodos(prevTodos => [...prevTodos, newTodo]);
-    setIsSubmitting(true);
-    setIsLoaderActive(true);
-
-    // Додавання класу активного лоадера
-    const loaderElement = document.querySelector('.modal.overlay');
-
-    if (loaderElement) {
-      loaderElement.classList.add('is-active');
-    }
-
-    // Відправка запиту на додавання нового завдання
-    addTodo(newTodo)
-      .then(() => {
+    setTodos(prevTodos => [...prevTodos, tempTodo]);
+    addTodo(tempTodo)
+      .then(newTodo => {
         setTodos(prevTodos =>
-          prevTodos.map(todo =>
-            todo.id === newTodo.id ? { ...todo, tempLoading: false } : todo,
-          ),
+          prevTodos.map(todo => (todo.id === tempTodo.id ? newTodo : todo)),
         );
       })
-      .catch(() => setError(errorMessages.add))
-      .finally(() => {
-        setIsSubmitting(false);
-        if (inputRef.current) {
-          inputRef.current.value = '';
-        }
-
-        // Вимкнення лоадера після завершення запиту
-        if (loaderElement) {
-          loaderElement.classList.remove('is-active');
-        }
-
-        setIsLoaderActive(false);
-      });
+      .catch(() => setError(errorMessages.add));
   };
 
   const handleHideError = () => {
@@ -124,7 +90,6 @@ export const App: React.FC = () => {
   return (
     <div className="todoapp">
       <h1 className="todoapp__title">todos</h1>
-
       <div className="todoapp__content">
         <header className="todoapp__header">
           <button
@@ -142,7 +107,6 @@ export const App: React.FC = () => {
               );
             }}
           />
-
           <form onSubmit={handleFormSubmit}>
             <input
               data-cy="NewTodoField"
@@ -150,17 +114,13 @@ export const App: React.FC = () => {
               className="todoapp__new-todo"
               placeholder="What needs to be done?"
               ref={inputRef}
-              disabled={isSubmitting}
+              disabled={todos.some(todo => !todo.id)}
             />
           </form>
         </header>
-
         <section className="todoapp__main" data-cy="TodoList">
-          {isLoading || isLoaderActive ? (
-            <div data-cy="TodoLoader" className="modal overlay is-active">
-              <div className="modal-background has-background-white-ter" />
-              <div className="loader" />
-            </div>
+          {isLoading ? (
+            <div className="loader">Loading...</div>
           ) : (
             filteredTodos.map(todo => (
               <div
@@ -168,43 +128,18 @@ export const App: React.FC = () => {
                 className={cn('todo', { completed: todo.completed })}
                 key={todo.id}
               >
-                {todo.tempLoading && (
-                  <div className="modal overlay is-active">
-                    <div
-                      className="
-                    modal-background 
-                    has-background-white-ter"
-                    />
-                    <div className="loader" />
-                  </div>
-                )}
-                <label
-                  className="todo__status-label"
-                  htmlFor={`todo-checkbox-${todo.id}`}
-                >
-                  Toggle completed
+                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+                <label className="todo__status-label">
                   <input
-                    id={`todo-checkbox-${todo.id}`}
                     data-cy="TodoStatus"
                     type="checkbox"
                     className="todo__status"
                     checked={todo.completed}
-                    onChange={() =>
-                      setTodos(prevTodos =>
-                        prevTodos.map(item =>
-                          item.id === todo.id
-                            ? { ...item, completed: !item.completed }
-                            : item,
-                        ),
-                      )
-                    }
                   />
                 </label>
-
                 <span data-cy="TodoTitle" className="todo__title">
                   {todo.title}
                 </span>
-
                 <button
                   type="button"
                   className="todo__remove"
@@ -217,8 +152,12 @@ export const App: React.FC = () => {
                 >
                   ×
                 </button>
-
-                <div data-cy="TodoLoader" className="modal overlay">
+                <div
+                  data-cy="TodoLoader"
+                  className={cn('modal overlay', {
+                    'is-active': !todo.id,
+                  })}
+                >
                   <div className="modal-background has-background-white-ter" />
                   <div className="loader" />
                 </div>
@@ -226,7 +165,6 @@ export const App: React.FC = () => {
             ))
           )}
         </section>
-
         {todos.length > 0 && (
           <TodoFooter
             setFilter={setFilter}
@@ -236,7 +174,6 @@ export const App: React.FC = () => {
           />
         )}
       </div>
-
       <div
         data-cy="ErrorNotification"
         className={cn(
