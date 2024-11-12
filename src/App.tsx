@@ -7,9 +7,9 @@ import { Filter } from './types/Filter';
 import { errorMessages, ErrorMessages } from './types/ErrorMessages';
 
 type TempTodo = Todo & { tempLoading?: boolean };
-
 export const App: React.FC = () => {
-  const [todos, setTodos] = useState<TempTodo[]>([]);
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [tempTodo, setTempTodo] = useState<TempTodo | null>(null);
   const [filter, setFilter] = useState<Filter>(Filter.all);
   const [error, setError] = useState<ErrorMessages | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -47,21 +47,24 @@ export const App: React.FC = () => {
       return;
     }
 
-    const tempTodo: Todo = {
+    const tempTodoItem: TempTodo = {
       id: 0,
       title: newTodoTitle,
       completed: false,
       userId: USER_ID,
+      tempLoading: true,
     };
 
-    setTodos(prevTodos => [...prevTodos, tempTodo]);
-    addTodo(tempTodo)
+    setTempTodo(tempTodoItem);
+    addTodo(tempTodoItem)
       .then(newTodo => {
-        setTodos(prevTodos =>
-          prevTodos.map(todo => (todo.id === tempTodo.id ? newTodo : todo)),
-        );
+        setTodos(prevTodos => [...prevTodos, newTodo]);
+        setTempTodo(null);
       })
-      .catch(() => setError(errorMessages.add));
+      .catch(() => {
+        setError(errorMessages.add);
+        setTempTodo(null);
+      });
   };
 
   const handleHideError = () => {
@@ -114,7 +117,7 @@ export const App: React.FC = () => {
               className="todoapp__new-todo"
               placeholder="What needs to be done?"
               ref={inputRef}
-              disabled={todos.some(todo => !todo.id)}
+              disabled={Boolean(tempTodo)}
             />
           </form>
         </header>
@@ -122,47 +125,66 @@ export const App: React.FC = () => {
           {isLoading ? (
             <div className="loader">Loading...</div>
           ) : (
-            filteredTodos.map(todo => (
-              <div
-                data-cy="Todo"
-                className={cn('todo', { completed: todo.completed })}
-                key={todo.id}
-              >
-                {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
-                <label className="todo__status-label">
-                  <input
-                    data-cy="TodoStatus"
-                    type="checkbox"
-                    className="todo__status"
-                    checked={todo.completed}
-                  />
-                </label>
-                <span data-cy="TodoTitle" className="todo__title">
-                  {todo.title}
-                </span>
-                <button
-                  type="button"
-                  className="todo__remove"
-                  data-cy="TodoDelete"
-                  onClick={() =>
-                    setTodos(prevTodos =>
-                      prevTodos.filter(item => item.id !== todo.id),
-                    )
-                  }
-                >
-                  ×
-                </button>
+            <>
+              {filteredTodos.map(todo => (
                 <div
-                  data-cy="TodoLoader"
-                  className={cn('modal overlay', {
-                    'is-active': !todo.id,
-                  })}
+                  data-cy="Todo"
+                  className={cn('todo', { completed: todo.completed })}
+                  key={todo.id}
                 >
-                  <div className="modal-background has-background-white-ter" />
-                  <div className="loader" />
+                  {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+                  <label className="todo__status-label">
+                    <input
+                      data-cy="TodoStatus"
+                      type="checkbox"
+                      className="todo__status"
+                      checked={todo.completed}
+                    />
+                  </label>
+                  <span data-cy="TodoTitle" className="todo__title">
+                    {todo.title}
+                  </span>
+                  <button
+                    type="button"
+                    className="todo__remove"
+                    data-cy="TodoDelete"
+                    onClick={() =>
+                      setTodos(prevTodos =>
+                        prevTodos.filter(item => item.id !== todo.id),
+                      )
+                    }
+                  >
+                    ×
+                  </button>
                 </div>
-              </div>
-            ))
+              ))}
+              {tempTodo && (
+                <div data-cy="Todo" className="todo" key="temp">
+                  {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+                  <label className="todo__status-label">
+                    <input
+                      type="checkbox"
+                      className="todo__status"
+                      checked={tempTodo.completed}
+                      disabled
+                    />
+                  </label>
+                  <span className="todo__title">{tempTodo.title}</span>
+                  <div
+                    data-cy="TodoLoader"
+                    className={cn('modal overlay', {
+                      'is-active': tempTodo.tempLoading,
+                    })}
+                  >
+                    <div
+                      className="modal-background 
+                    has-background-white-ter"
+                    />
+                    <div className="loader" />
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </section>
         {todos.length > 0 && (
