@@ -103,13 +103,32 @@ export const App: React.FC = () => {
 
     setDeletingId(completedTodoIds);
 
-    Promise.all(completedTodoIds.map(id => deleteTodo(id)))
-      .then(() => {
-        setTodos(prevTodos => prevTodos.filter(todo => !todo.completed));
-        setDeletingId([]);
+    Promise.allSettled(completedTodoIds.map(id => deleteTodo(id)))
+      .then(results => {
+        // Фільтруємо успішні видалення та оновлюємо стан todos
+        const successfulDeletions = results
+          .map((result, index) =>
+            result.status === 'fulfilled' ? completedTodoIds[index] : null,
+          )
+          .filter(id => id !== null);
+
+        setTodos(prevTodos =>
+          prevTodos.filter(todo => !successfulDeletions.includes(todo.id)),
+        );
+
+        // Перевіряємо наявність невдалих видалень
+        const hasFailedDeletions = results.some(
+          result => result.status === 'rejected',
+        );
+
+        // Якщо є невдалі видалення, показуємо повідомлення про помилку
+        if (hasFailedDeletions) {
+          setError(errorMessages.delete);
+        }
+
         inputRef.current?.focus();
       })
-      .catch(() => setError(errorMessages.delete))
+      .catch(() => setError(errorMessages.delete)) // Це зловить будь-яку несподівану помилку
       .finally(() => {
         setDeletingId([]);
       });
