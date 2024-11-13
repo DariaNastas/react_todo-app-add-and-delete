@@ -19,6 +19,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
   useEffect(() => {
     setIsLoading(true);
     getTodos()
@@ -26,6 +27,7 @@ export const App: React.FC = () => {
       .catch(() => setError(errorMessages.load))
       .finally(() => setIsLoading(false));
   }, []);
+
   useEffect(() => {
     let timerId = 0;
 
@@ -95,7 +97,22 @@ export const App: React.FC = () => {
     todos.length > 0 && todos.every(todo => todo.completed);
 
   const handleClearCompleted = () => {
-    setTodos(prevTodos => prevTodos.filter(todo => !todo.completed));
+    const completedTodoIds = todos
+      .filter(todo => todo.completed)
+      .map(todo => todo.id);
+
+    setDeletingId(completedTodoIds);
+
+    Promise.all(completedTodoIds.map(id => deleteTodo(id)))
+      .then(() => {
+        setTodos(prevTodos => prevTodos.filter(todo => !todo.completed));
+        setDeletingId([]);
+        inputRef.current?.focus();
+      })
+      .catch(() => setError(errorMessages.delete))
+      .finally(() => {
+        setDeletingId([]);
+      });
   };
 
   const handleDeleteTodo = (todoId: number) => {
@@ -224,6 +241,7 @@ export const App: React.FC = () => {
         </section>
         {todos.length > 0 && (
           <TodoFooter
+            todos={todos} // Передаємо масив todos
             setFilter={setFilter}
             remainingCount={todos.filter(todo => !todo.completed).length}
             currentFilter={filter}
