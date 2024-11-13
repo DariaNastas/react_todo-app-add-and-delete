@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { addTodo, getTodos, USER_ID } from './api/todos';
+import { addTodo, deleteTodo, getTodos, USER_ID } from './api/todos';
 import { Todo } from './types/Todo';
 import cn from 'classnames';
 import { Footer as TodoFooter } from './components/Footer';
@@ -13,12 +13,12 @@ export const App: React.FC = () => {
   const [filter, setFilter] = useState<Filter>(Filter.all);
   const [error, setError] = useState<ErrorMessages | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<number[]>([]);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
-
   useEffect(() => {
     setIsLoading(true);
     getTodos()
@@ -26,7 +26,6 @@ export const App: React.FC = () => {
       .catch(() => setError(errorMessages.load))
       .finally(() => setIsLoading(false));
   }, []);
-
   useEffect(() => {
     let timerId = 0;
 
@@ -60,10 +59,19 @@ export const App: React.FC = () => {
       .then(newTodo => {
         setTodos(prevTodos => [...prevTodos, newTodo]);
         setTempTodo(null);
+
+        if (inputRef.current) {
+          inputRef.current.value = '';
+        }
       })
       .catch(() => {
         setError(errorMessages.add);
         setTempTodo(null);
+      })
+      .finally(() => {
+        setTimeout(() => {
+          inputRef.current?.focus();
+        }, 50);
       });
   };
 
@@ -88,6 +96,23 @@ export const App: React.FC = () => {
 
   const handleClearCompleted = () => {
     setTodos(prevTodos => prevTodos.filter(todo => !todo.completed));
+  };
+
+  const handleDeleteTodo = (todoId: number) => {
+    setDeletingId(prevIds => [...prevIds, todoId]);
+
+    deleteTodo(todoId)
+      .then(() => {
+        setTodos(curr => curr.filter(todo => todo.id !== todoId));
+      })
+      .catch(() => setError(errorMessages.delete))
+      .finally(() => {
+        setDeletingId(prevIds => prevIds.filter(id => id !== todoId));
+
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      });
   };
 
   return (
@@ -148,14 +173,22 @@ export const App: React.FC = () => {
                     type="button"
                     className="todo__remove"
                     data-cy="TodoDelete"
-                    onClick={() =>
-                      setTodos(prevTodos =>
-                        prevTodos.filter(item => item.id !== todo.id),
-                      )
-                    }
+                    onClick={() => handleDeleteTodo(todo.id)}
                   >
                     ×
                   </button>
+                  <div
+                    data-cy="TodoLoader"
+                    className={cn('modal overlay', {
+                      'is-active': deletingId.includes(todo.id),
+                    })}
+                  >
+                    <div
+                      className="modal-background
+                     has-background-white-ter"
+                    />
+                    <div className="loader" />
+                  </div>
                 </div>
               ))}
               {tempTodo && (
@@ -169,7 +202,9 @@ export const App: React.FC = () => {
                       disabled
                     />
                   </label>
-                  <span className="todo__title">{tempTodo.title}</span>
+                  <span className="todo__title" data-cy="TodoTitle">
+                    {tempTodo.title}
+                  </span>
                   <div
                     data-cy="TodoLoader"
                     className={cn('modal overlay', {
@@ -177,7 +212,7 @@ export const App: React.FC = () => {
                     })}
                   >
                     <div
-                      className="modal-background 
+                      className="modal-background
                     has-background-white-ter"
                     />
                     <div className="loader" />

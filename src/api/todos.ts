@@ -17,3 +17,7 @@ export const clearCompletedTodos = async () => {
 export const addTodo = async (todo: Todo) => {
   return client.post<Todo>('/todos', todo);
 };
+
+export const deleteTodo = async (id: number): Promise<void> => {
+  await client.delete(`/todos/${id}`);
+};
